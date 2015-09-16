@@ -31,6 +31,8 @@ class RGBmatrixPanel : public Adafruit_GFX {
     Color888(uint8_t r, uint8_t g, uint8_t b, boolean gflag),
     ColorHSV(long hue, uint8_t sat, uint8_t val, boolean gflag);
 
+    bool started = false;
+
  private:
 
   uint8_t         *matrixbuff[2];
@@ -48,4 +50,3 @@ class RGBmatrixPanel : public Adafruit_GFX {
   volatile uint8_t row, plane;
   volatile uint8_t *buffptr;
 };
-

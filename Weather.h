@@ -31,20 +31,20 @@ void gotWeatherData(const char *name, const char *data){
   Serial.println("Parsing weather data...");
 
 	for (int i = 0; i < stringLength; i++) {
-    Serial.print("i: ");
-    Serial.println(i);
-
-    Serial.print("itemCounter: ");
-    Serial.println(itemCounter);
-
-    Serial.print("tempStringLoc: ");
-    Serial.println(tempStringLoc);
-
-    Serial.print("dayCounter: ");
-    Serial.println(dayCounter);
-
-    Serial.print("dropChar: ");
-    Serial.println(dropChar);
+    // Serial.print("i: ");
+    // Serial.println(i);
+    //
+    // Serial.print("itemCounter: ");
+    // Serial.println(itemCounter);
+    //
+    // Serial.print("tempStringLoc: ");
+    // Serial.println(tempStringLoc);
+    //
+    // Serial.print("dayCounter: ");
+    // Serial.println(dayCounter);
+    //
+    // Serial.print("dropChar: ");
+    // Serial.println(dropChar);
 
 		if(data[i]=='~'){
 			itemCounter++;
@@ -104,7 +104,7 @@ void drawWeatherIcon(uint8_t x, uint8_t y, int id){
 
     lastFrameSwitch = millis();
 
-    for(int r = 0; r < 13; r++) {
+    for(int r = 0; r < 12; r++) {
        rain[r] = random(9, 15);
     }
   }
@@ -196,15 +196,15 @@ void drawWeatherIcon(uint8_t x, uint8_t y, int id){
 			matrix.fillRect(x, y + 1, 15, 15, matrix.Color333(0, 1, 1));
 			matrix.drawBitmap(x, y, big_sun, 16, 16, matrix.Color333(2, 2, 0));
 			break;
-		}
+  }
 
-		if(raining){
-			for(int r = 0; r<13; r++){
-				matrix.drawPixel(x+r+2, rain[r]++, rainColor);
-				// if(rain[r]==16) rain[r]=9;
-				//if(rain[r]==20) rain[r]=9;
-			}
-    }
+	if(raining){
+		for(int r = 0; r<13; r++){
+			matrix.drawPixel(x+r+2, rain[r]++, rainColor);
+			// if(rain[r]==16) rain[r]=9;
+			//if(rain[r]==20) rain[r]=9;
+		}
+  }
 }
 
 void drawWeather(){

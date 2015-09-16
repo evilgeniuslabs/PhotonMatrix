@@ -26,6 +26,8 @@ byte bat2_update = 1;
 byte bat1miss, bat2miss; //flags set on the minute or hour that trigger the bats to miss the ball, thus upping the score to match the time.
 byte restart = 1;   //game restart flag - set to 1 initially to setup 1st game
 
+unsigned long lastUpdate = 0;
+
 void drawPongClock(uint8_t y){
 	matrix.setTextSize(1);
 	matrix.setTextColor(matrix.Color333(2, 2, 2));

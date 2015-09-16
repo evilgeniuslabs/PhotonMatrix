@@ -61,7 +61,7 @@ BSD license, all text above must be included in any redistribution.
   #define G2	D1		// bit 6 = GREEN 2
   #define B2	D0		// bit 7 = BLUE 2
   static const uint16_t	dur[4] = {30, 60, 120, 240};
-#else  
+#else
   #define R1	D0		// bit 2 = RED 1
   #define G1	D1		// bit 3 = GREEN 1
   #define B1	D2		// bit 4 = BLUE 1
@@ -87,7 +87,7 @@ BSD license, all text above must be included in any redistribution.
 #if defined TIMING
 #define signalPIN	DAC	// Use pin A7 for oscilloscope or analyzer timing - DAC for Photon, A7 for Core
 #endif
-  
+
 #define numPanels	1
 #define nPlanes		4
 
@@ -156,12 +156,12 @@ RGBmatrixPanel::RGBmatrixPanel(
   uint8_t a, uint8_t b, uint8_t c, uint8_t d,
   uint8_t sclk, uint8_t latch, uint8_t oe, boolean dbuf) :
   Adafruit_GFX(numPanels * 32, 32) {
-  
+
   init(16, a, b, c, sclk, latch, oe, dbuf);
 
   // Init a few extra 32x32-specific elements:
   _d        = d;
-  
+
 }
 
 void RGBmatrixPanel::begin(void) {
@@ -169,7 +169,7 @@ void RGBmatrixPanel::begin(void) {
   backindex   = 0;                         // Back buffer
   buffptr     = matrixbuff[1 - backindex]; // -> front buffer
   activePanel = this;                      // For interrupt hander
-  
+
   // Enable all comm & address pins as outputs, set default states:
   pinMode(_sclk , OUTPUT); pinResetFast(_sclk);	//Low
   pinMode(_latch, OUTPUT); pinResetFast(_latch);	//Low
@@ -180,7 +180,7 @@ void RGBmatrixPanel::begin(void) {
   if(nRows > 8) {
     pinMode(_d  , OUTPUT); pinResetFast(_d);		//Low
   }
-  
+
   pinMode(R1, OUTPUT); pinResetFast(R1);			//Low
   pinMode(G1, OUTPUT); pinResetFast(G1);			//Low
   pinMode(B1, OUTPUT); pinResetFast(B1);			//Low
@@ -189,7 +189,7 @@ void RGBmatrixPanel::begin(void) {
   pinMode(B2, OUTPUT); pinResetFast(B2);			//Low
 
   refreshTimer.begin(refreshISR, 200, uSec);
-
+  started = true;
 }
 
 // Original RGBmatrixPanel library used 3/3/3 color.  Later version used
@@ -416,7 +416,7 @@ void refreshISR(void)
 #endif
 
   activePanel->updateDisplay();   // Call refresh func for active display
-  
+
 #if defined TIMING
   pinResetFast(signalPIN);	//Start timing
 #endif
@@ -473,7 +473,7 @@ void RGBmatrixPanel::updateDisplay(void) {
 
   pinSetFast(_oe);			// Disable LED output during row/plane switchover
   pinSetFast(_latch);		// Latch data loaded during *prior* interrupt
-  
+
   //TEST - start with clock low
   pinResetFast(_sclk);			//lo
 
@@ -574,7 +574,7 @@ void RGBmatrixPanel::updateDisplay(void) {
 
   for(i=0; i<32; i++) {
 		uint8_t bits = ( ptr[i] << 6) | ((ptr[i+32] << 4) & 0x30) | ((ptr[i+64] << 2) & 0x0C);
-		
+
 		(bits & 0x04) ? pinSetFast(R1) : pinResetFast(R1);		//R1
 		(bits & 0x08) ? pinSetFast(G1) : pinResetFast(G1);		//G1
 		(bits & 0x10) ? pinSetFast(B1) : pinResetFast(B1);		//B1
@@ -586,4 +586,3 @@ void RGBmatrixPanel::updateDisplay(void) {
     }
   }
 }
-

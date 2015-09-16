@@ -1,210 +1,213 @@
 /*
- * Photon Matrix by Jason Coon @jasoncoon_ at Evil Genius Labs @evilgeniuslab
- *
- * Derived from Paul Kourany's RGBPongClock: https://github.com/pkourany/RGBPongClock
- * Which was derived by RGB Pong Clock by Andrew Holmes @pongclock: https://github.com/twonk/RGBPongClock
- * Which was inspired by, and shamelessly derived from Nick's LED Projects: https://123led.wordpress.com/about
- *
- */
+* Photon Matrix by Jason Coon @jasoncoon_ at Evil Genius Labs @evilgeniuslab
+*
+* Derived from Paul Kourany's RGBPongClock: https://github.com/pkourany/RGBPongClock
+* Which was derived by RGB Pong Clock by Andrew Holmes @pongclock: https://github.com/twonk/RGBPongClock
+* Which was inspired by, and shamelessly derived from Nick's LED Projects: https://123led.wordpress.com/about
+*
+*/
 
 #include "PhotonMatrix.h"
-
-#define HOOK_RESP
 
 void setup() {
   Serial.begin(115200);
 
-	Spark.function("variable", setVariable);		// Receive mode commands
-
-	Spark.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
-
-  Time.zone(timezone);
+  // Lets give ourselves 3 seconds before we actually start the program.
+  // That will just give us a chance to open the serial monitor before the program sends the request
+  /*for (int i = 0; i < 3; i++) {
+  Serial.println("Waiting " + String(3 - i) + " seconds for serial monitor...");
+  delay(1000);
+  }*/
 
   matrix.begin();
   matrix.setTextWrap(false); // Allow text to run off right edge
   matrix.setTextSize(1);
   matrix.setTextColor(matrix.Color333(210, 210, 210));
 
-  /*// Lets give ourselves 10 seconds before we actually start the program.
-  // That will just give us a chance to open the serial monitor before the program sends the request
-  for(int i=0;i<3;i++) {
-    Serial.println("Waiting " + String(3-i) + " seconds for serial monitor...");
-    delay(1000);
-  }*/
+  matrix.fillScreen(0);
+  matrix.swapBuffers(true);
+
+  RGB.onChange(ledChangeHandler);
+
+  Spark.connect();
+
+  pinMode(Paddle1Pin, INPUT_PULLDOWN);
+  pinMode(Paddle2Pin, INPUT_PULLDOWN);
+
+  pinMode(Paddle1ButtonPin, INPUT_PULLUP);
+  pinMode(Paddle2ButtonPin, INPUT_PULLUP);
+
+  Spark.variable("paddle1Y", &paddle1PinState, INT);
+  Spark.variable("paddle2Y", &paddle2PinState, INT);
+
+  Spark.variable("paddle1Btn", &paddle1ButtonPinState, INT);
+  Spark.variable("paddle2Btn", &paddle2ButtonPinState, INT);
+
+  Spark.function("variable", setVariable);		// Receive mode commands
+
+  Spark.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
+
+  Time.zone(timezone);
+
+  // read settings stored in EEPROM
+
+  // read timezone sign (positive or negative)
+  uint8_t timezoneSign = EEPROM.read(1);
+
+  // read timezone
+  if (timezoneSign < 1)
+    timezone = -EEPROM.read(2);
+  else
+    timezone = EEPROM.read(2);
+
+  if (timezone < -12)
+    timezone = -12;
+  else if (timezone > 14)
+    timezone = 14;
+
+  // read modeIndex
+  modeIndex = EEPROM.read(3);
 }
 
 void loop() {
-	matrix.fillScreen(0);
+  matrix.fillScreen(0);
 
-  if(power == 0) {
+  if (power == 0) {
     matrix.swapBuffers(false);
     delay(100);
     return;
   }
 
-  // sync time every 24 hrs
-  if (millis() > lastTimeSync + MillisPerDay) {
-    Spark.syncTime();
-    lastTimeSync = millis();
+  if (Spark.connected()) {
+    Spark.process();
+
+    // sync time every 24 hrs
+    if (millis() > lastTimeSync + MillisPerDay) {
+      Spark.syncTime();
+      lastTimeSync = millis();
+    }
+
+    // update weather every hour
+    if (lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour) { // || !weatherReceived && millis() > lastWeatherSync + MillsPerMinute) {
+      Serial.println("Requesting Weather!");
+
+      weatherReceived = false;
+
+      // publish the event that will trigger our Webhook
+      Spark.publish("weather_hook");
+      lastWeatherSync = millis();
+    }
   }
-
-	// update weather every hour
-	if(lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour) {
-    Serial.println("Requesting Weather!");
-
-		weatherReceived = false;
-
-		// publish the event that will trigger our Webhook
-    /*Spark.publish("get_weather");*/
-		Spark.publish("weather_hook");
-		lastWeatherSync = millis();
-	}
 
   // show the clock on the bottom of the screen
-  switch(clockIndex) {
-    case 0:
-      drawPongClock(16);
-      break;
+  switch (modeIndex) {
+  case 0:
+    // show the weather on the top of the screen
+    drawWeather();
 
-    case 1:
-      drawDateAndTime(1, 17);
-      break;
+    // draw the pong clock on the bottom of the screen
+    drawPongClock(16);
+
+    break;
+
+  case 1:
+    // show the weather on the top of the screen
+    drawWeather();
+
+    // draw the date and time on the bottom of the screen
+    drawDateAndTime(1, 17);
+
+    break;
+
+  case 2:
+    runPongGame();
+
+    break;
   }
 
-  // show the weather on the top of the screen
-	drawWeather();
+  matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB));
+
+  matrix.swapBuffers(true);
 
   delay(40);
+}
 
-  matrix.swapBuffers(false);
+void ledChangeHandler(uint8_t r, uint8_t g, uint8_t b) {
+  externalLedR = r;
+  externalLedG = g;
+  externalLedB = b;
 }
 
 int setVariable(String args) {
-    if(args.startsWith("pwr:")) {
-        return setPower(args.substring(4));
-    }
-    else if (args.startsWith("tz:")) {
-        return setTimezone(args.substring(3));
-    }
-    else if (args.startsWith("ampm:")) {
-        return setAmPm(args.substring(5));
-    }
-    else if (args.startsWith("clk:")) {
-        return setClockIndex(args.substring(4));
-    }
-    /*
-    else if (args.startsWith("brt:")) {
-        return setBrightness(args.substring(4));
-    }
-    else if (args.startsWith("flpclk:")) {
-        return setFlipClock(args.substring(7));
-    }
-    else if (args.startsWith("r:")) {
-        r = parseByte(args.substring(2));
-        solidColor.r = r;
-        EEPROM.write(5, r);
-        patternIndex = patternCount - 1;
-        return r;
-    }
-    else if (args.startsWith("g:")) {
-        g = parseByte(args.substring(2));
-        solidColor.g = g;
-        EEPROM.write(6, g);
-        patternIndex = patternCount - 1;
-        return g;
-    }
-    else if (args.startsWith("b:")) {
-        b = parseByte(args.substring(2));
-        solidColor.b = b;
-        EEPROM.write(7, b);
-        patternIndex = patternCount - 1;
-        return b;
-    }
-    else if (args.startsWith("nsx:")) {
-        noiseSpeedX = args.substring(4).toInt();
-        if(noiseSpeedX < 0)
-            noiseSpeedX = 0;
-        else if (noiseSpeedX > 65535)
-            noiseSpeedX = 65535;
-        return noiseSpeedX;
-    }
-    else if (args.startsWith("nsy:")) {
-        noiseSpeedY = args.substring(4).toInt();
-        if(noiseSpeedY < 0)
-            noiseSpeedY = 0;
-        else if (noiseSpeedY > 65535)
-            noiseSpeedY = 65535;
-        return noiseSpeedY;
-    }
-    else if (args.startsWith("nsz:")) {
-        noiseSpeedZ = args.substring(4).toInt();
-        if(noiseSpeedZ < 0)
-            noiseSpeedZ = 0;
-        else if (noiseSpeedZ > 65535)
-            noiseSpeedZ = 65535;
-        return noiseSpeedZ;
-    }
-    else if (args.startsWith("nsc:")) {
-        noiseScale = args.substring(4).toInt();
-        if(noiseScale < 0)
-            noiseScale = 0;
-        else if (noiseScale > 65535)
-            noiseScale = 65535;
-        return noiseScale;
-    }
-    */
+  Serial.print("setVariable args: ");
+  Serial.println(args);
 
-    return -1;
+  if (args.startsWith("pwr:")) {
+    return setPower(args.substring(4));
+  }
+  else if (args.startsWith("tz:")) {
+    return setTimezone(args.substring(3));
+  }
+  else if (args.startsWith("ampm:")) {
+    return setAmPm(args.substring(5));
+  }
+  else if (args.startsWith("mode:")) {
+    return setModeIndex(args.substring(5));
+  }
+
+  return -1;
 }
 
 int setPower(String args) {
-    power = args.toInt();
-    if(power < 0)
-        power = 0;
-    else if (power > 1)
-        power = 1;
+  power = args.toInt();
+  if (power < 0)
+    power = 0;
+  else if (power > 1)
+    power = 1;
 
-    return power;
+  return power;
 }
 
 int setTimezone(String args) {
-    timezone = args.toInt();
-    if(timezone < -12)
-      timezone = -12;
-    else if (timezone > 13)
-      timezone = 13;
+  timezone = args.toInt();
+  if (timezone < -12)
+    timezone = -12;
+  else if (timezone > 13)
+    timezone = 13;
 
-    Time.zone(timezone);
+  Time.zone(timezone);
 
-    if(timezone < 0)
-        EEPROM.write(1, 0);
-    else
-        EEPROM.write(1, 1);
+  if (timezone < 0)
+    EEPROM.write(1, 0);
+  else
+    EEPROM.write(1, 1);
 
-    EEPROM.write(2, abs(timezone));
+  EEPROM.write(2, abs(timezone));
 
-    return timezone;
+  return timezone;
 }
 
-int setClockIndex(String args) {
-    clockIndex = args.toInt();
+int setModeIndex(String args) {
+  modeIndex = args.toInt();
 
-    if(clockIndex < 0)
-      clockIndex = 0;
-    else if (clockIndex > 1)
-      clockIndex = 1;
+  if (modeIndex < 0)
+    modeIndex = 0;
+  else if (modeIndex > 2)
+    modeIndex = 2;
 
-    return clockIndex;
+  EEPROM.write(3, modeIndex);
+
+  return modeIndex;
 }
 
 int setAmPm(String args) {
-    int ampmInt = args.toInt();
-    if(ampmInt < 0)
-      ampmInt = 0;
-    else if (ampmInt > 1)
-      ampmInt = 1;
+  int ampmInt = args.toInt();
+  if (ampmInt < 0)
+    ampmInt = 0;
+  else if (ampmInt > 1)
+    ampmInt = 1;
 
-    ampm = ampmInt != 0;
+  ampm = ampmInt != 0;
 
-    return ampmInt;
+  return ampmInt;
 }
