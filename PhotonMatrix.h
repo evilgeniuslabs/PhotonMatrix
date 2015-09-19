@@ -83,6 +83,7 @@ int paddle2PinState = 0;
 #define Paddle1ButtonPin RX
 #define Paddle2ButtonPin TX
 
+#include "Rectangle.h"
 #include "Vector.h"
 #include "Movable.h"
 #include "ClickButton.h"
@@ -99,5 +100,7 @@ ClickButton paddle2Button(TX, LOW, CLICKBTN_PULLUP);
 #include "WeatherIcons.h"
 #include "Weather.h"
 #include "PongGame.h"
+#include "BreakoutGame.h"
 
 PongGame pongGame;
+BreakoutGame breakoutGame;

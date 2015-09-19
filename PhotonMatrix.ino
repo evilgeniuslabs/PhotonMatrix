@@ -12,8 +12,9 @@
 const uint8_t ModeIndexWeatherAndPongClock = 0;
 const uint8_t ModeIndexWeatherAndDateTime = 1;
 const uint8_t ModeIndexPongGame = 2;
+const uint8_t ModeIndexBreakoutGame = 3;
 
-const uint8_t modeCount = 3;
+const uint8_t modeCount = 4;
 
 void setup() {
   Serial.begin(115200);
@@ -142,6 +143,10 @@ void loop() {
     case ModeIndexPongGame:
       pongGame.drawFrame();
       break;
+
+    case ModeIndexBreakoutGame:
+      breakoutGame.drawFrame();
+      break;
   }
 
   matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB));
@@ -224,6 +229,7 @@ int setTimezone(String args) {
 
 int setModeIndex(int value) {
   pongGame.isPaused = true;
+  breakoutGame.isPaused = true;
 
   modeIndex = value;
 

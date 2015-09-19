@@ -139,12 +139,14 @@ public:
 
   }
 
-  void drawFrame()
+  uint8_t drawFrame()
   {
     handleInput();
 
     update();
 
     draw();
+
+    return 40;
   }
 };
