@@ -9,6 +9,12 @@
 
 #include "PhotonMatrix.h"
 
+const uint8_t ModeIndexWeatherAndPongClock = 0;
+const uint8_t ModeIndexWeatherAndDateTime = 1;
+const uint8_t ModeIndexPongGame = 2;
+
+const uint8_t modeCount = 3;
+
 void setup() {
   Serial.begin(115200);
 
@@ -33,15 +39,6 @@ void setup() {
 
   pinMode(Paddle1Pin, INPUT_PULLDOWN);
   pinMode(Paddle2Pin, INPUT_PULLDOWN);
-
-  pinMode(Paddle1ButtonPin, INPUT_PULLUP);
-  pinMode(Paddle2ButtonPin, INPUT_PULLUP);
-
-  Spark.variable("paddle1Y", &paddle1PinState, INT);
-  Spark.variable("paddle2Y", &paddle2PinState, INT);
-
-  Spark.variable("paddle1Btn", &paddle1ButtonPinState, INT);
-  Spark.variable("paddle2Btn", &paddle2ButtonPinState, INT);
 
   Spark.function("variable", setVariable);		// Receive mode commands
 
@@ -72,10 +69,29 @@ void setup() {
 void loop() {
   matrix.fillScreen(0);
 
+  readPaddleInput();
+
   if (power == 0) {
     matrix.swapBuffers(false);
-    delay(100);
-    return;
+
+    // wake if a paddle button is pressed
+    if(paddle1Button.clicks != 0 || paddle2Button.clicks != 0)
+    {
+      power = 1;
+      paddle1Button.clicks = 0;
+      paddle2Button.clicks = 0;
+    }
+    else
+    {
+      // let Particle process, then delay a bit and stay asleep
+      if (Spark.connected()) {
+        Spark.process();
+      }
+
+      delay(100);
+
+      return;
+    }
   }
 
   if (Spark.connected()) {
@@ -88,7 +104,7 @@ void loop() {
     }
 
     // update weather every hour
-    if (lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour) { // || !weatherReceived && millis() > lastWeatherSync + MillsPerMinute) {
+    if (lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour || (!weatherReceived && millis() > lastWeatherSync + MillsPerMinute)) {
       Serial.println("Requesting Weather!");
 
       weatherReceived = false;
@@ -99,30 +115,33 @@ void loop() {
     }
   }
 
+  // move to the next mode if a paddle button is held
+  if(paddle1Button.clicks < 0 || paddle2Button.clicks < 0)
+  {
+    setModeIndex(modeIndex + 1);
+  }
+
   // show the clock on the bottom of the screen
   switch (modeIndex) {
-  case 0:
-    // show the weather on the top of the screen
-    drawWeather();
+    case ModeIndexWeatherAndPongClock:
+      // show the weather on the top of the screen
+      drawWeather();
 
-    // draw the pong clock on the bottom of the screen
-    drawPongClock(16);
+      // draw the pong clock on the bottom of the screen
+      drawPongClock(16);
+      break;
 
-    break;
+    case ModeIndexWeatherAndDateTime:
+      // show the weather on the top of the screen
+      drawWeather();
 
-  case 1:
-    // show the weather on the top of the screen
-    drawWeather();
+      // draw the date and time on the bottom of the screen
+      drawDateAndTime(1, 17);
+      break;
 
-    // draw the date and time on the bottom of the screen
-    drawDateAndTime(1, 17);
-
-    break;
-
-  case 2:
-    runPongGame();
-
-    break;
+    case ModeIndexPongGame:
+      pongGame.drawFrame();
+      break;
   }
 
   matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB));
@@ -130,6 +149,16 @@ void loop() {
   matrix.swapBuffers(true);
 
   delay(40);
+}
+
+void readPaddleInput()
+{
+  paddle1Button.Update();
+  paddle2Button.Update();
+
+  // read paddle rotary analog pins
+  paddle1PinState = analogRead(Paddle1Pin);
+  paddle2PinState = analogRead(Paddle2Pin);
 }
 
 void ledChangeHandler(uint8_t r, uint8_t g, uint8_t b) {
@@ -152,7 +181,13 @@ int setVariable(String args) {
     return setAmPm(args.substring(5));
   }
   else if (args.startsWith("mode:")) {
-    return setModeIndex(args.substring(5));
+    return setModeIndex(args.substring(5).toInt());
+  }
+  else if (args.startsWith("nextMode")) {
+    return setModeIndex(modeIndex++);
+  }
+  else if (args.startsWith("prevMode")) {
+    return setModeIndex(modeIndex--);
   }
 
   return -1;
@@ -187,13 +222,15 @@ int setTimezone(String args) {
   return timezone;
 }
 
-int setModeIndex(String args) {
-  modeIndex = args.toInt();
+int setModeIndex(int value) {
+  pongGame.isPaused = true;
+
+  modeIndex = value;
 
   if (modeIndex < 0)
+    modeIndex = modeCount - 1;
+  else if (modeIndex >= modeCount)
     modeIndex = 0;
-  else if (modeIndex > 2)
-    modeIndex = 2;
 
   EEPROM.write(3, modeIndex);
 

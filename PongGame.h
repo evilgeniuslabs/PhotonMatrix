@@ -1,175 +1,150 @@
-#define Paddle1Pin A6
-#define Paddle2Pin A5
+class PongGame : public Drawable {
+public:
+  uint8_t paddleWidth = 2;
+  uint8_t paddleHeight = 8;
 
-int paddle1PinState = 0;
-int paddle2PinState = 0;
+  Movable ball = Movable(15, 15, 0.6, 0.7);
 
-#define Paddle1ButtonPin RX
-#define Paddle2ButtonPin TX
+  uint8_t scoreY = 0;
+  uint8_t player1score = 0;
+  uint8_t player2score = 0;
 
-int paddle1ButtonPinState = 0;
-int paddle2ButtonPinState = 0;
+  bool isPaused = true;
 
-uint8_t paddle1x = 1;
-uint8_t paddle2x = 30;
-
-uint8_t paddle1y = 15;
-uint8_t paddle2y = 15;
-
-uint8_t paddleWidth = 2;
-uint8_t paddleHeight = 8;
-
-float ballX = 15;
-float ballY = 15;
-
-float ballVx = 0.6f;
-float ballVy = 0.7f;
-
-bool paddle1ButtonPressed = false;
-bool paddle2ButtonPressed = false;
-
-uint8_t scoreY = 0;
-uint8_t player1score = 0;
-uint8_t player2score = 0;
-
-bool isPaused = true;
-
-void updatePongGame()
-{
-  // update ball position
-  if(!isPaused)
+  void update()
   {
-    ballX += ballVx;
-    ballY += ballVy;
+    // update ball position
+    if(!isPaused)
+    {
+      ball.location.x += ball.velocity.x;
+      ball.location.y += ball.velocity.y;
+    }
+
+    bool restartBall = false;
+
+    int newBallDirectionX = 0;
+
+    // check for border collisions
+    if(ball.location.x < 0)
+    {
+      // player 2 wins
+      newBallDirectionX = 1;
+      player2score++;
+      restartBall = true;
+    }
+    else if (ball.location.x >= MATRIX_WIDTH)
+    {
+      // player 1 wins
+      newBallDirectionX = -1;
+      player1score++;
+      restartBall = true;
+    }
+
+    if(restartBall)
+    {
+      if(player1score == 10 || player2score == 10)
+      {
+        player1score = 0;
+        player2score = 0;
+      }
+      ball.location.x = 15;
+      ball.velocity.x = 0.6f * newBallDirectionX;
+      ball.velocity.y = 0.7f;
+      isPaused = true;
+      return;
+    }
+
+    if(ball.location.y < 0)
+    {
+      ball.location.y = 0;
+        ball.velocity.y *= -1;
+    }
+    else if (ball.location.y >= MATRIX_HEIGHT)
+    {
+      ball.location.y = MATRIX_HEIGHT - 1;
+      ball.velocity.y *= -1;
+    }
+
+    // check for paddle collisions
+    if(ball.location.x < paddle1.location.x + paddleWidth && ball.location.y >= paddle1.location.y && ball.location.y < paddle1.location.y + paddleHeight)
+    {
+      ball.location.x = paddle1.location.x + paddleWidth;
+      ball.velocity.x *= -1.0f;
+      ball.velocity.y += paddle1.velocity.y / 64;
+      // ball.velocity.x -= paddle1.velocity.y / 4;
+    }
+    else if(ball.location.x >= paddle2.location.x && ball.location.y >= paddle2.location.y && ball.location.y < paddle2.location.y + paddleHeight)
+    {
+      ball.location.x = paddle2.location.x - 1;
+      ball.velocity.x *= -1.0f;
+      ball.velocity.y += paddle2.velocity.y / 64;
+      // ball.velocity.x -= paddle2.velocity.y / 4;
+    }
   }
 
-  bool restartBall = false;
-
-  // check for border collisions
-  if(ballX < 0)
+  void handleInput()
   {
-    // player 2 wins
-    player2score++;
-    restartBall = true;
+    if(isPaused && (paddle1Button.clicks == 1 || paddle2Button.clicks == 1))
+    {
+      isPaused = false;
+    }
+
+    // update paddle positions
+    float newY = paddle1PinState / (4096 / (MATRIX_HEIGHT));
+    if(newY > MATRIX_HEIGHT - paddleHeight)
+      newY = MATRIX_HEIGHT - paddleHeight;
+    paddle1.velocity.y = paddle1.location.y + newY;
+    paddle1.location.y = newY;
+
+    newY = paddle2PinState / (4096 / (MATRIX_HEIGHT));
+    if(newY > MATRIX_HEIGHT - paddleHeight)
+      newY = MATRIX_HEIGHT - paddleHeight;
+    paddle2.velocity.y = paddle2.location.y + newY;
+    paddle2.location.y = newY;
   }
-  else if (ballX >= MATRIX_WIDTH)
+
+  void draw()
   {
-    // palyer 1 wins
-    player1score++;
-    restartBall = true;
+    //draw pitch centre line
+    for (byte i = 0; i < MATRIX_HEIGHT; i += 2) {
+      matrix.drawPixel(16, i, matrix.Color333(0,4,0));
+    }
+
+    // draw paddles
+    matrix.fillRect(paddle1.location.x, paddle1.location.y, paddleWidth, paddleHeight, paddle1Button.clicks != 0 ? matrix.Color333(1, 1, 1) : matrix.Color333(0,0,4));
+    matrix.fillRect(paddle2.location.x, paddle2.location.y, paddleWidth, paddleHeight, paddle2Button.clicks != 0 ? matrix.Color333(1, 1, 1) : matrix.Color333(0,0,4));
+
+    // draw score
+  	char buffer[3];
+
+  	itoa(player1score,buffer,10);
+  	//fix - as otherwise if num has leading zero, e.g. "03" hours, itoa coverts this to chars with space "3 ".
+  	if (player1score < 10) {
+  		buffer[1] = buffer[0];
+  		buffer[0] = '0';
+  	}
+  	vectorNumber(buffer[0]-'0',8,1 + scoreY,matrix.Color333(1,1,1),1,1);
+  	vectorNumber(buffer[1]-'0',12,1 + scoreY,matrix.Color333(1,1,1),1,1);
+
+  	itoa(player2score,buffer,10);
+  	if (player2score < 10) {
+  		buffer[1] = buffer[0];
+  		buffer[0] = '0';
+  	}
+  	vectorNumber(buffer[0]-'0',18,1 + scoreY,matrix.Color333(1,1,1),1,1);
+  	vectorNumber(buffer[1]-'0',22,1 + scoreY,matrix.Color333(1,1,1),1,1);
+
+    // draw ball
+    matrix.drawPixel(ball.location.x, ball.location.y, matrix.Color333(4, 0, 0));
+
   }
 
-  if(restartBall)
+  void drawFrame()
   {
-    ballX = 15;
-    ballVx *= -1;
-    isPaused = true;
-    return;
+    handleInput();
+
+    update();
+
+    draw();
   }
-
-  bool ballCollisionX = false;
-  bool ballCollisionY = false;
-
-  if(ballY < 0)
-  {
-    ballY = 0;
-    ballCollisionY = true;
-  }
-  else if (ballY >= MATRIX_HEIGHT)
-  {
-    ballY = MATRIX_HEIGHT - 1;
-    ballCollisionY = true;
-  }
-
-  // check for paddle collisions
-  if(ballX < paddle1x + paddleWidth && ballY >= paddle1y && ballY < paddle1y + paddleHeight)
-  {
-    ballX = paddle1x + paddleWidth;
-    ballCollisionX = true;
-  }
-
-  if(ballX >= paddle2x && ballY >= paddle2y && ballY < paddle2y + paddleHeight)
-  {
-    ballX = paddle2x - 1;
-    ballCollisionX = true;
-  }
-
-  if(ballCollisionY)
-  {
-    ballVy *= -1;
-  }
-
-  if(ballCollisionX)
-  {
-    ballVx *= -1;
-  }
-}
-
-void handlePongGameInput()
-{
-  // read paddle rotary analog pins
-  paddle1PinState = analogRead(Paddle1Pin);
-  paddle2PinState = analogRead(Paddle2Pin);
-
-  // update paddle positions
-  paddle1y = paddle1PinState / (4096 / MATRIX_HEIGHT);
-  paddle2y = paddle2PinState / (4096 / MATRIX_HEIGHT);
-
-  // read paddle button digital pins
-  paddle1ButtonPinState = digitalRead(Paddle1ButtonPin);
-  paddle2ButtonPinState = digitalRead(Paddle2ButtonPin);
-
-  // update paddle button states
-  paddle1ButtonPressed = paddle1ButtonPinState == LOW;
-  paddle2ButtonPressed = paddle2ButtonPinState == LOW;
-
-  if(isPaused && (paddle1ButtonPressed || paddle2ButtonPressed))
-  {
-    isPaused = false;
-  }
-}
-
-void drawPongGame()
-{
-  //draw pitch centre line
-  for (byte i = 0; i < MATRIX_HEIGHT; i += 2) {
-    matrix.drawPixel(16, i, matrix.Color333(0,4,0));
-  }
-
-  // draw paddles
-  matrix.fillRect(paddle1x, paddle1y, paddleWidth, paddleHeight, paddle1ButtonPressed ? matrix.Color333(1, 1, 1) : matrix.Color333(0,0,4));
-  matrix.fillRect(paddle2x, paddle2y, paddleWidth, paddleHeight, paddle2ButtonPressed ? matrix.Color333(1, 1, 1) : matrix.Color333(0,0,4));
-
-  // draw score
-	char buffer[3];
-
-	itoa(player1score,buffer,10);
-	//fix - as otherwise if num has leading zero, e.g. "03" hours, itoa coverts this to chars with space "3 ".
-	if (player1score < 10) {
-		buffer[1] = buffer[0];
-		buffer[0] = '0';
-	}
-	vectorNumber(buffer[0]-'0',8,1 + scoreY,matrix.Color333(1,1,1),1,1);
-	vectorNumber(buffer[1]-'0',12,1 + scoreY,matrix.Color333(1,1,1),1,1);
-
-	itoa(player2score,buffer,10);
-	if (player2score < 10) {
-		buffer[1] = buffer[0];
-		buffer[0] = '0';
-	}
-	vectorNumber(buffer[0]-'0',18,1 + scoreY,matrix.Color333(1,1,1),1,1);
-	vectorNumber(buffer[1]-'0',22,1 + scoreY,matrix.Color333(1,1,1),1,1);
-
-  // draw ball
-  matrix.drawPixel(ballX, ballY, matrix.Color333(4, 0, 0));
-
-}
-
-void runPongGame()
-{
-  handlePongGameInput();
-
-  updatePongGame();
-
-  drawPongGame();
-}
+};
