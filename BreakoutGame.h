@@ -165,16 +165,16 @@ public:
 
     if (ballFellOutBottom) {
       ballFellOutBottom = false;
-      lives--;
 
       isPaused = true;
 
-      if (lives < 0) {
-        reset();
+      if (lives > 0) {
+      	lives--;
+        resetBall();
         return;
       }
       else {
-        resetBall();
+        reset();
         return;
       }
     }
