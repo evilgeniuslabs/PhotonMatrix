@@ -51,26 +51,28 @@ void setup() {
 
   Spark.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
 
-  Time.zone(timezone);
-
   // read settings stored in EEPROM
-
-  // read timezone sign (positive or negative)
-  uint8_t timezoneSign = EEPROM.read(1);
-
-  // read timezone
-  if (timezoneSign < 1)
-    timezone = -EEPROM.read(2);
-  else
-    timezone = EEPROM.read(2);
-
-  if (timezone < -12)
-    timezone = -12;
-  else if (timezone > 14)
-    timezone = 14;
+  int eeAddress = 0;
 
   // read modeIndex
-  modeIndex = EEPROM.read(3);
+  setModeIndex(EEPROM.get(eeAddress, modeIndex));
+  eeAddressModeIndex = eeAddress;
+  eeAddress += sizeof(modeIndex);
+
+  // read timezone
+  setTimezone(EEPROM.get(eeAddress, timezone));
+  eeAddressTimezone = eeAddress;
+  eeAddress += sizeof(timezone);
+
+  // read zip
+  setZip(EEPROM.get(eeAddress, zip));
+  eeAddressZip = eeAddress;
+  eeAddress += sizeof(zip);
+
+  // read ampm (show AM/PM or 24 hour clock)
+  setAmPm(EEPROM.get(eeAddress, ampm));
+  eeAddressAmpm = eeAddress;
+  eeAddress += sizeof(ampm);
 }
 
 void loop() {
@@ -119,7 +121,7 @@ void loop() {
       weatherReceived = false;
 
       // publish the event that will trigger our Webhook
-      Spark.publish("weather_hook");
+      Spark.publish("weather_hook", String(zip));
       lastWeatherSync = millis();
     }
   }
@@ -196,13 +198,16 @@ int setVariable(String args) {
   Serial.println(args);
 
   if (args.startsWith("pwr:")) {
-    return setPower(args.substring(4));
+    return setPower(args.substring(4).toInt());
   }
   else if (args.startsWith("tz:")) {
-    return setTimezone(args.substring(3));
+    return setTimezone(args.substring(3).toInt());
   }
   else if (args.startsWith("ampm:")) {
-    return setAmPm(args.substring(5));
+    return setAmPm(args.substring(5).toInt());
+  }
+  else if (args.startsWith("zip:")) {
+    return setZip(args.substring(4).toInt());
   }
   else if (args.startsWith("mode:")) {
     return setModeIndex(args.substring(5).toInt());
@@ -217,8 +222,8 @@ int setVariable(String args) {
   return -1;
 }
 
-int setPower(String args) {
-  power = args.toInt();
+int setPower(int value) {
+  power = value;
   if (power < 0)
     power = 0;
   else if (power > 1)
@@ -227,8 +232,8 @@ int setPower(String args) {
   return power;
 }
 
-int setTimezone(String args) {
-  timezone = args.toInt();
+int setTimezone(int value) {
+  timezone = value;
   if (timezone < -12)
     timezone = -12;
   else if (timezone > 13)
@@ -236,12 +241,7 @@ int setTimezone(String args) {
 
   Time.zone(timezone);
 
-  if (timezone < 0)
-    EEPROM.write(1, 0);
-  else
-    EEPROM.write(1, 1);
-
-  EEPROM.write(2, abs(timezone));
+  EEPROM.put(eeAddressTimezone, timezone);
 
   return timezone;
 }
@@ -257,13 +257,13 @@ int setModeIndex(int value) {
   else if (modeIndex >= modeCount)
     modeIndex = 0;
 
-  EEPROM.write(3, modeIndex);
+  EEPROM.put(eeAddressModeIndex, modeIndex);
 
   return modeIndex;
 }
 
-int setAmPm(String args) {
-  int ampmInt = args.toInt();
+int setAmPm(int value) {
+  int ampmInt = value;
   if (ampmInt < 0)
     ampmInt = 0;
   else if (ampmInt > 1)
@@ -271,5 +271,21 @@ int setAmPm(String args) {
 
   ampm = ampmInt != 0;
 
+  EEPROM.put(eeAddressAmpm, ampm);
+
   return ampmInt;
+}
+
+int setZip(int value) {
+  zip = value;
+  if (zip < 0)
+    zip = 0;
+  else if (zip > 99999)
+    zip = 99999;
+
+  EEPROM.put(eeAddressZip, zip);
+  
+  lastWeatherSync = 0;
+
+  return zip;
 }

@@ -70,9 +70,18 @@ char DayNames[7][4] = {
 #include "GraphicsFonts.h"
 
 int power = 1;
+
 int timezone = -5;
-boolean ampm = true;
+int eeAddressTimezone;
+
 int modeIndex = 0;
+int eeAddressModeIndex;
+
+int zip = 66207;
+int eeAddressZip;
+
+boolean ampm = true;
+int eeAddressAmpm;
 
 #define Paddle1Pin A6
 #define Paddle2Pin A5

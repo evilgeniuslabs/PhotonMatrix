@@ -1,9 +1,7 @@
 {
 	"event": "weather_hook",
-	"url": "http://api.openweathermap.org/data/2.5/forecast/daily?zip=66207,us&mode=json&units=imperial&cnt=7",
+	"url": "http://api.openweathermap.org/data/2.5/forecast/daily?mode=json&cnt=7&units=imperial&zip={{SPARK_EVENT_VALUE}},us",
 	"requestType": "GET",
 	"responseTemplate": "{{#list}}{{temp.day}}{{#weather}}~{{id}}~{{/weather}}{{/list}}",
-	"json": null,
-	"auth": null,
 	"mydevices": true
 }
