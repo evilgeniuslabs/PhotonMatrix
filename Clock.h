@@ -1,5 +1,3 @@
-unsigned long lastTimeSync = 0;
-
 void drawDateAndTime(uint8_t x, uint8_t y)
 {
   int mins = Time.minute();

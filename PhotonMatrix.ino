@@ -9,12 +9,18 @@
 
 #include "PhotonMatrix.h"
 
-const uint8_t ModeIndexWeatherAndPongClock = 0;
-const uint8_t ModeIndexWeatherAndDateTime = 1;
-const uint8_t ModeIndexPongGame = 2;
-const uint8_t ModeIndexBreakoutGame = 3;
+typedef uint8_t (*ModeList[])();
 
-const uint8_t modeCount = 4;
+ModeList modes = {
+  weatherAndPongClock,
+  weatherAndDateTime,
+  runPongGame,
+  runBreakoutGame,
+};
+
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
+const uint8_t modeCount = ARRAY_SIZE(modes);
 
 void setup() {
   Serial.begin(115200);
@@ -98,6 +104,8 @@ void loop() {
   if (Spark.connected()) {
     Spark.process();
 
+    static unsigned long lastTimeSync = 0;
+
     // sync time every 24 hrs
     if (millis() > lastTimeSync + MillisPerDay) {
       Spark.syncTime();
@@ -122,38 +130,49 @@ void loop() {
     setModeIndex(modeIndex + 1);
   }
 
-  // show the clock on the bottom of the screen
-  switch (modeIndex) {
-    case ModeIndexWeatherAndPongClock:
-      // show the weather on the top of the screen
-      drawWeather();
+  // run the current mode
+  uint8_t requestedDelay = modes[modeIndex]();
 
-      // draw the pong clock on the bottom of the screen
-      drawPongClock(16);
-      break;
-
-    case ModeIndexWeatherAndDateTime:
-      // show the weather on the top of the screen
-      drawWeather();
-
-      // draw the date and time on the bottom of the screen
-      drawDateAndTime(1, 17);
-      break;
-
-    case ModeIndexPongGame:
-      pongGame.drawFrame();
-      break;
-
-    case ModeIndexBreakoutGame:
-      breakoutGame.drawFrame();
-      break;
-  }
-
+  // draw the status LED state at in the top left corner
   matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB));
 
+  // show the current frame
   matrix.swapBuffers(true);
 
-  delay(40);
+  // "sleep" for the amount of time requested by the current mode/pattern
+  delay(requestedDelay);
+}
+
+uint8_t weatherAndPongClock()
+{
+  // show the weather on the top of the screen
+  drawWeather();
+
+  // draw the pong clock on the bottom of the screen
+  drawPongClock(16);
+
+  return 40;
+}
+
+uint8_t weatherAndDateTime()
+{
+  // show the weather on the top of the screen
+  drawWeather();
+
+  // draw the date and time on the bottom of the screen
+  drawDateAndTime(1, 17);
+
+  return 40;
+}
+
+uint8_t runPongGame()
+{
+  return pongGame.drawFrame();
+}
+
+uint8_t runBreakoutGame()
+{
+  return breakoutGame.drawFrame();
 }
 
 void readPaddleInput()
