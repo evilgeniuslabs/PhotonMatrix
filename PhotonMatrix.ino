@@ -42,14 +42,14 @@ void setup() {
 
   RGB.onChange(ledChangeHandler);
 
-  Spark.connect();
+  Particle.connect();
 
   pinMode(Paddle1Pin, INPUT_PULLDOWN);
   pinMode(Paddle2Pin, INPUT_PULLDOWN);
 
-  Spark.function("variable", setVariable);		// Receive mode commands
+  Particle.function("variable", setVariable);		// Receive mode commands
 
-  Spark.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
+  Particle.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
 
   // read settings stored in EEPROM
   int eeAddress = 0;
@@ -93,8 +93,8 @@ void loop() {
     else
     {
       // let Particle process, then delay a bit and stay asleep
-      if (Spark.connected()) {
-        Spark.process();
+      if (Particle.connected()) {
+        Particle.process();
       }
 
       delay(100);
@@ -103,14 +103,14 @@ void loop() {
     }
   }
 
-  if (Spark.connected()) {
-    Spark.process();
+  if (Particle.connected()) {
+    Particle.process();
 
     static unsigned long lastTimeSync = 0;
 
     // sync time every 24 hrs
     if (millis() > lastTimeSync + MillisPerDay) {
-      Spark.syncTime();
+      Particle.syncTime();
       lastTimeSync = millis();
     }
 
@@ -121,7 +121,7 @@ void loop() {
       weatherReceived = false;
 
       // publish the event that will trigger our Webhook
-      Spark.publish("weather_hook", String(zip));
+      Particle.publish("weather_hook", String(zip));
       lastWeatherSync = millis();
     }
   }
@@ -136,7 +136,7 @@ void loop() {
   uint8_t requestedDelay = modes[modeIndex]();
 
   // draw the status LED state at in the top left corner
-  matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB));
+  matrix.drawPixel(0, 0, matrix.Color888(externalLedR, externalLedG, externalLedB, true));
 
   // show the current frame
   matrix.swapBuffers(true);
@@ -284,7 +284,7 @@ int setZip(int value) {
     zip = 99999;
 
   EEPROM.put(eeAddressZip, zip);
-  
+
   lastWeatherSync = 0;
 
   return zip;
