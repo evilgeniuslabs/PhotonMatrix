@@ -9,6 +9,12 @@
 
 #include "PhotonMatrix.h"
 
+#include "PongGame.h"
+#include "BreakoutGame.h"
+
+PongGame pongGame;
+BreakoutGame breakoutGame;
+
 typedef uint8_t (*ModeList[])();
 
 ModeList modes = {

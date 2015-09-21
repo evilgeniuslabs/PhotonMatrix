@@ -108,8 +108,3 @@ ClickButton paddle2Button(TX, LOW, CLICKBTN_PULLUP);
 #include "PongClock.h"
 #include "WeatherIcons.h"
 #include "Weather.h"
-#include "PongGame.h"
-#include "BreakoutGame.h"
-
-PongGame pongGame;
-BreakoutGame breakoutGame;
