@@ -44,8 +44,8 @@ extern char* itoa(int a, char* buffer, unsigned char radix);
 #define D   A3
 #endif
 
-#define MillsPerMinute 60UL * 1000UL
-#define MillisPerHour 60UL * MillsPerMinute
+#define MillisPerMinute 60UL * 1000UL
+#define MillisPerHour 60UL * MillisPerMinute
 #define MillisPerDay 24UL * MillisPerHour
 
 const float PI = 3.1415926535;
@@ -71,17 +71,14 @@ char DayNames[7][4] = {
 
 int power = 1;
 
+// settings stored in EEPROM
 int timezone = -5;
-int eeAddressTimezone;
-
 int modeIndex = 0;
-int eeAddressModeIndex;
-
 int zip = 66207;
-int eeAddressZip;
+int ampm = 1;
 
-boolean ampm = true;
-int eeAddressAmpm;
+String gmailUserAndPassword = ""; // username:password
+int eeAddressGmailUserAndPassword;
 
 #define Paddle1Pin A6
 #define Paddle2Pin A5
@@ -108,3 +105,6 @@ ClickButton paddle2Button(TX, LOW, CLICKBTN_PULLUP);
 #include "PongClock.h"
 #include "WeatherIcons.h"
 #include "Weather.h"
+#include "Gmail.h"
+
+#include "Settings.h"

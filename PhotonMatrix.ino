@@ -20,6 +20,8 @@ typedef uint8_t (*ModeList[])();
 ModeList modes = {
   weatherAndPongClock,
   weatherAndDateTime,
+  gmailAndPongClock,
+  gmailAndDateTime,
   runPongGame,
   runBreakoutGame,
 };
@@ -33,10 +35,10 @@ void setup() {
 
   // Lets give ourselves 3 seconds before we actually start the program.
   // That will just give us a chance to open the serial monitor before the program sends the request
-  /*for (int i = 0; i < 3; i++) {
-  Serial.println("Waiting " + String(3 - i) + " seconds for serial monitor...");
-  delay(1000);
-  }*/
+  for (int i = 0; i < 2; i++) {
+    Serial.println("Waiting " + String(3 - i) + " seconds for serial monitor...");
+    delay(1000);
+  }
 
   matrix.begin();
   matrix.setTextWrap(false); // Allow text to run off right edge
@@ -57,28 +59,9 @@ void setup() {
 
   Particle.subscribe("hook-response/weather_hook", gotWeatherData, MY_DEVICES);
 
-  // read settings stored in EEPROM
-  int eeAddress = 0;
+  Particle.subscribe("hook-response/gmail_hook", gotGmailData, MY_DEVICES);
 
-  // read modeIndex
-  setModeIndex(EEPROM.get(eeAddress, modeIndex));
-  eeAddressModeIndex = eeAddress;
-  eeAddress += sizeof(modeIndex);
-
-  // read timezone
-  setTimezone(EEPROM.get(eeAddress, timezone));
-  eeAddressTimezone = eeAddress;
-  eeAddress += sizeof(timezone);
-
-  // read zip
-  setZip(EEPROM.get(eeAddress, zip));
-  eeAddressZip = eeAddress;
-  eeAddress += sizeof(zip);
-
-  // read ampm (show AM/PM or 24 hour clock)
-  setAmPm(EEPROM.get(eeAddress, ampm));
-  eeAddressAmpm = eeAddress;
-  eeAddress += sizeof(ampm);
+  readSettings();
 }
 
 void loop() {
@@ -121,7 +104,7 @@ void loop() {
     }
 
     // update weather every hour
-    if (lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour || (!weatherReceived && millis() > lastWeatherSync + MillsPerMinute)) {
+    if (lastWeatherSync == 0 || millis() > lastWeatherSync + MillisPerHour || (!weatherReceived && millis() > lastWeatherSync + MillisPerMinute)) {
       Serial.println("Requesting Weather!");
 
       weatherReceived = false;
@@ -129,6 +112,20 @@ void loop() {
       // publish the event that will trigger our Webhook
       Particle.publish("weather_hook", String(zip));
       lastWeatherSync = millis();
+    }
+
+    // update gmail every 5 minutes
+    if (lastGmailSync == 0 || millis() > lastGmailSync + MillisPerMinute || (!gmailReceived && millis() > lastGmailSync + MillisPerMinute)) {
+      Serial.println("Requesting Gmail!");
+
+      Serial.print("gmailUserAndPassword: ");
+      Serial.println(gmailUserAndPassword);
+
+      gmailReceived = false;
+
+      // publish the event that will trigger our Webhook
+      Particle.publish("gmail_hook", gmailUserAndPassword);
+      lastGmailSync = millis();
     }
   }
 
@@ -173,6 +170,28 @@ uint8_t weatherAndDateTime()
   return 40;
 }
 
+uint8_t gmailAndPongClock()
+{
+  // show the gmail on the top of the screen
+  drawGmail(1, 1);
+
+  // draw the pong clock on the bottom of the screen
+  drawPongClock(16);
+
+  return 40;
+}
+
+uint8_t gmailAndDateTime()
+{
+  // show the gmail on the top of the screen
+  drawGmail(1, 1);
+
+  // draw the date and time on the bottom of the screen
+  drawDateAndTime(1, 17);
+
+  return 40;
+}
+
 uint8_t runPongGame()
 {
   return pongGame.drawFrame();
@@ -203,29 +222,37 @@ int setVariable(String args) {
   Serial.print("setVariable args: ");
   Serial.println(args);
 
+  int result = -42;
+
   if (args.startsWith("pwr:")) {
-    return setPower(args.substring(4).toInt());
+    result = setPower(args.substring(4).toInt());
   }
   else if (args.startsWith("tz:")) {
-    return setTimezone(args.substring(3).toInt());
+    result = setTimezone(args.substring(3).toInt());
   }
   else if (args.startsWith("ampm:")) {
-    return setAmPm(args.substring(5).toInt());
+    result = setAmPm(args.substring(5).toInt());
   }
   else if (args.startsWith("zip:")) {
-    return setZip(args.substring(4).toInt());
+    result = setZip(args.substring(4).toInt());
+  }
+  else if (args.startsWith("gmail:")) {
+    result = setGmailUserAndPassword(args.substring(6));
   }
   else if (args.startsWith("mode:")) {
-    return setModeIndex(args.substring(5).toInt());
+    result = setModeIndex(args.substring(5).toInt());
   }
   else if (args.startsWith("nextMode")) {
-    return setModeIndex(modeIndex++);
+    result = setModeIndex(modeIndex++);
   }
   else if (args.startsWith("prevMode")) {
-    return setModeIndex(modeIndex--);
+    result = setModeIndex(modeIndex--);
   }
 
-  return -1;
+  if(result != -42)
+    writeSettings();
+
+  return result;
 }
 
 int setPower(int value) {
@@ -237,7 +264,6 @@ int setPower(int value) {
 
   return power;
 }
-
 int setTimezone(int value) {
   timezone = value;
   if (timezone < -12)
@@ -246,8 +272,6 @@ int setTimezone(int value) {
     timezone = 13;
 
   Time.zone(timezone);
-
-  EEPROM.put(eeAddressTimezone, timezone);
 
   return timezone;
 }
@@ -263,23 +287,17 @@ int setModeIndex(int value) {
   else if (modeIndex >= modeCount)
     modeIndex = 0;
 
-  EEPROM.put(eeAddressModeIndex, modeIndex);
-
   return modeIndex;
 }
 
 int setAmPm(int value) {
-  int ampmInt = value;
-  if (ampmInt < 0)
-    ampmInt = 0;
-  else if (ampmInt > 1)
-    ampmInt = 1;
+  ampm = value;
+  if (ampm < 0)
+    ampm = 0;
+  else if (ampm > 1)
+    ampm = 1;
 
-  ampm = ampmInt != 0;
-
-  EEPROM.put(eeAddressAmpm, ampm);
-
-  return ampmInt;
+  return ampm;
 }
 
 int setZip(int value) {
@@ -289,9 +307,18 @@ int setZip(int value) {
   else if (zip > 99999)
     zip = 99999;
 
-  EEPROM.put(eeAddressZip, zip);
-
   lastWeatherSync = 0;
 
   return zip;
+}
+
+int setGmailUserAndPassword(String value) {
+  Serial.print("gmailUserAndPassword: ");
+  Serial.println(value);
+
+  gmailUserAndPassword = value;
+
+  lastGmailSync = 0;
+
+  return 0;
 }

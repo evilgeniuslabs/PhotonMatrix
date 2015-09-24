@@ -77,7 +77,7 @@ void gotWeatherData(const char *name, const char *data){
 		}
 	}
 
-  Serial.print("Finished parsing weather data.");
+  Serial.println("Finished parsing weather data.");
 
 	lastWeatherSync = millis();
 	weatherReceived = true;

@@ -8,7 +8,7 @@ void drawDateAndTime(uint8_t x, uint8_t y)
   char endchar[16];
 
 	// adjust the hour for AM/PM, if desired
-	if(ampm) {
+	if(ampm == 1) {
 	  if (hours > 12) {
 	    hours -= 12;
 	  }
@@ -24,7 +24,7 @@ void drawDateAndTime(uint8_t x, uint8_t y)
   //fix - as otherwise if num has leading zero, e.g. "03" hours, itoa coverts this to chars with space "3 ".
   if (hours < 10) {
     buffer[1] = buffer[0];
-    buffer[0] = ampm ? ' ' : '0';
+    buffer[0] = ampm == 1 ? ' ' : '0';
   }
 
   endchar[0] = buffer[0];
@@ -64,7 +64,7 @@ void drawDateAndTime(uint8_t x, uint8_t y)
   //set topline
   endchar[5] = ' ';
 
-  if(ampm) {
+  if(ampm == 1) {
     endchar[6] = Time.isAM() ? 'A' : 'P';
     endchar[7] = 'M';
   }

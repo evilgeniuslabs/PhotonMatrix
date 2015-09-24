@@ -1,0 +1,6 @@
+{
+	"event": "gmail_hook",
+	"url": "https://{{SPARK_EVENT_VALUE}}@mail.google.com/mail/feed/atom/",
+	"requestType": "GET",
+	"mydevices": true
+}

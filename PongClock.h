@@ -46,7 +46,7 @@ void drawPongClock(uint8_t y){
 	int hours = Time.hour();
 
 	// adjust the hour for AM/PM, if desired
-	if(ampm) {
+	if(ampm == 1) {
 	  if (hours > 12) {
 	    hours -= 12;
 	  }
